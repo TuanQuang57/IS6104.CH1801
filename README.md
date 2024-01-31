@@ -1,5 +1,9 @@
 # Hệ thống thông tin đa phương tiện - IS6104.CH1801
 
+## Team members:
+- **Nguyễn Tuấn Quang :** ***230101017***
+- **Nguyễn Kiều Vinh :** ***2301010130***
+
 ## SketchZoo: Animal Image Retrieval with Siamese Neural Networks
 
 ### Dataset Informations
