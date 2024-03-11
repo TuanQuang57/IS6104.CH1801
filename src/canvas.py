@@ -13,8 +13,8 @@ SCRIPT DESCRIPTION:
 This script displays a GUI where you can draw sketches and obtain the corresponding images.
 '''
 
-dataset_paths = {'mini': ["../Mini Dataset/photo", "../Mini Dataset/sketch"],
-                 'full': ["../Full Dataset/256x256/photo", "../Full Dataset/256x256/sketch"]}
+dataset_paths = {'full': ["../Mini Dataset/photo", "../Mini Dataset/sketch"],
+                 'mini': ["../rendered_256x256/256x256/photo", "../rendered_256x256/256x256/sketch"]}
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"We're using {DEVICE}")
 
@@ -112,7 +112,7 @@ def search_images(event):
 
 
 # Load the model and embedding space
-net.load_state_dict(torch.load(WEIGHT_PATH))
+net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
 
 # Create the main window
