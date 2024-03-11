@@ -26,7 +26,7 @@ print(f"We're using {DEVICE}")
 # ====================================
 
 #Pick a Dataset (you can use the dictionary up here as reference)
-DATASET_NAME = 'full'
+DATASET_NAME = 'mini'
 PHOTO_DATASET_PATH, SKETCHES_DATASET_PATH = dataset_paths[DATASET_NAME]
 
 #Pick an embedding size
@@ -35,7 +35,7 @@ OUTPUT_EMBEDDING = 2
 
 #Choose a Weight Path
 #   After the training your weight are going to be saved here
-WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive-resnet50.pth"
+WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive.pth"
 
 #Pick a K (for the K-Precision)
 #   It is used show k retrieved images
@@ -49,7 +49,7 @@ BATCH_SIZE = 16
 #   after which several linear layers will be applied to produce an embedding of size EMBEDDING_SIZE.
 backbone = models.resnet18()
 net = SiameseNetwork(output = OUTPUT_EMBEDDING, backbone = backbone).to(DEVICE)
-net.load_state_dict(torch.load(WEIGHT_PATH))
+net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 
 
 #Load Dataset
