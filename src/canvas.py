@@ -1,6 +1,6 @@
 import tkinter as tk
 from PIL import Image, ImageTk
-from torch.utils.data import DataLoader 
+from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision import models
 from EmbeddingSpace import *
@@ -13,53 +13,45 @@ SCRIPT DESCRIPTION:
 This script displays a GUI where you can draw sketches and obtain the corresponding images.
 '''
 
-dataset_paths = {'mini' : ["../Mini Dataset/photo", "../Mini Dataset/sketch"], 
-                 'full' : ["../Full Dataset/256x256/photo", "../Full Dataset/256x256/sketch"]}
+dataset_paths = {'mini': ["../Mini Dataset/photo", "../Mini Dataset/sketch"],
+                 'full': ["../Full Dataset/256x256/photo", "../Full Dataset/256x256/sketch"]}
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"We're using {DEVICE}")
-
-
-
 
 # ====================================
 #               CONFIG
 # ====================================
 
-#Pick a Dataset (you can use the dictionary up here as reference)
+# Pick a Dataset (you can use the dictionary up here as reference)
 DATASET_NAME = 'mini'
 PHOTO_DATASET_PATH, SKETCHES_DATASET_PATH = dataset_paths[DATASET_NAME]
 
-#Pick an embedding size
+# Pick an embedding size
 #   Must coincide with the model weights
 OUTPUT_EMBEDDING = 2
 
-#Choose a Weight Path
+# Choose a Weight Path
 #   After the training your weight are going to be saved here
 WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive.pth"
 
-#Pick a K (for the K-Precision)
+# Pick a K (for the K-Precision)
 #   It is used show k retrieved images
 K = 12
 
-#Pick a Batch Size
+# Pick a Batch Size
 BATCH_SIZE = 16
 
-#Pick a Backbone
+# Pick a Backbone
 #   The backbone represents the neural network within the siamese network, 
 #   after which several linear layers will be applied to produce an embedding of size EMBEDDING_SIZE.
 backbone = models.resnet18()
-net = SiameseNetwork(output = OUTPUT_EMBEDDING, backbone = backbone).to(DEVICE)
+net = SiameseNetwork(output=OUTPUT_EMBEDDING, backbone=backbone).to(DEVICE)
 net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 
-
-#Load Dataset
+# Load Dataset
 workers = 0
-images_ds = ImageFolder(PHOTO_DATASET_PATH, transform = transforms.ToTensor())
-images_loader = DataLoader(images_ds, shuffle = False, num_workers = workers, pin_memory = True, batch_size = BATCH_SIZE)
-
-
-
-
+images_ds = ImageFolder(PHOTO_DATASET_PATH, transform=transforms.ToTensor())
+images_loader = DataLoader(images_ds, shuffle=False, num_workers=workers, pin_memory=True, batch_size=BATCH_SIZE)
 
 # ====================================
 #                CODE
@@ -69,8 +61,10 @@ images_loader = DataLoader(images_ds, shuffle = False, num_workers = workers, pi
 CANVAS_SIZE = 256  # Size of the square canvas
 COLUMNS = 6
 
+
 def clear_canvas():
     canvas.delete("all")
+
 
 def get_canvas_image():
     # Get the coordinates of the canvas relative to the screen
@@ -89,8 +83,8 @@ def get_canvas_image():
 
     return tensor
 
-def search_images(event):
 
+def search_images(event):
     # Get the sketch image from the canvas
     sketch = get_canvas_image()
 
@@ -102,19 +96,18 @@ def search_images(event):
 
     # Display the top K images and their corresponding distances
     for i, (idx, d) in enumerate(zip(topk_indices, topk_distances)):
-
         # Resize the image and convert to PhotoImage format
         t = transforms.ToPILImage()
         image = t(images_ds[idx][0])
         resized_image = image.resize((256, 256))
         resized_image_tk = ImageTk.PhotoImage(resized_image)
 
-        label = tk.Label(image_frame, image = resized_image_tk)
+        label = tk.Label(image_frame, image=resized_image_tk)
         label.image = resized_image_tk  # Keep a reference to avoid garbage collection
         label.grid(row=i // COLUMNS, column=i % COLUMNS, padx=10, pady=10)
 
         # Create label for the distance and add to the frame
-        text_label = tk.Label(image_frame, text=str(f'{i+1}° - {d.item():.4}'))
+        text_label = tk.Label(image_frame, text=str(f'{i + 1}° - {d.item():.4}'))
         text_label.grid(row=i // COLUMNS, column=i % COLUMNS, padx=10, pady=10, sticky='n')
 
 
@@ -128,11 +121,13 @@ root.title("Image Search")
 root.state('zoomed')
 
 # Create the canvas for drawing
-canvas = tk.Canvas(root, width=CANVAS_SIZE, height=CANVAS_SIZE, bg="white", highlightbackground="black", highlightthickness=2)
+canvas = tk.Canvas(root, width=CANVAS_SIZE, height=CANVAS_SIZE, bg="white", highlightbackground="black",
+                   highlightthickness=2)
 canvas.pack(padx=20, pady=20)
 
 # Bind mouse events to canvas
-canvas.bind("<B1-Motion>", lambda event: canvas.create_oval(event.x-2, event.y-2, event.x+2, event.y+2, fill="black"))
+canvas.bind("<B1-Motion>",
+            lambda event: canvas.create_oval(event.x - 2, event.y - 2, event.x + 2, event.y + 2, fill="black"))
 canvas.bind("<ButtonRelease-1>", search_images)
 
 # Create a frame for the buttons
