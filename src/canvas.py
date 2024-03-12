@@ -7,32 +7,35 @@ from EmbeddingSpace import *
 from Networks import SiameseNetwork
 import pyautogui
 import torchvision.transforms as transforms
+import os
+import time
+
 
 '''
 SCRIPT DESCRIPTION:
 This script displays a GUI where you can draw sketches and obtain the corresponding images.
 '''
 
-dataset_paths = {'full': ["../Mini Dataset/photo", "../Mini Dataset/sketch"],
-                 'mini': ["../rendered_256x256/256x256/photo", "../rendered_256x256/256x256/sketch"]}
+dataset_paths = {'full': ["../256x256/photo/tx_000000000000", "../256x256/sketch/tx_000000000000"],
+                 'mini': ["../256x256/photo/tx_000000000000", "../256x256/sketch/tx_000000000000"]}
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f"We're using {DEVICE}")
+print(f"We're using {DEVICE} in canvas.py")
 
 # ====================================
 #               CONFIG
 # ====================================
 
 # Pick a Dataset (you can use the dictionary up here as reference)
-DATASET_NAME = 'mini'
+DATASET_NAME = 'full'
 PHOTO_DATASET_PATH, SKETCHES_DATASET_PATH = dataset_paths[DATASET_NAME]
 
 # Pick an embedding size
 #   Must coincide with the model weights
-OUTPUT_EMBEDDING = 2
+OUTPUT_EMBEDDING = 16
 
 # Choose a Weight Path
 #   After the training your weight are going to be saved here
-WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive.pth"
+WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive-resnet34.pth"
 
 # Pick a K (for the K-Precision)
 #   It is used show k retrieved images
@@ -44,7 +47,7 @@ BATCH_SIZE = 16
 # Pick a Backbone
 #   The backbone represents the neural network within the siamese network, 
 #   after which several linear layers will be applied to produce an embedding of size EMBEDDING_SIZE.
-backbone = models.resnet18()
+backbone = models.resnet34()
 net = SiameseNetwork(output=OUTPUT_EMBEDDING, backbone=backbone).to(DEVICE)
 net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 
@@ -52,6 +55,11 @@ net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 workers = 0
 images_ds = ImageFolder(PHOTO_DATASET_PATH, transform=transforms.ToTensor())
 images_loader = DataLoader(images_ds, shuffle=False, num_workers=workers, pin_memory=True, batch_size=BATCH_SIZE)
+
+EMBEDDING_SPACE_FILE = "embedding_space.pth"
+last_modified_ds_folder = os.path.getmtime(PHOTO_DATASET_PATH)
+current_modified_ds_folder = os.path.getmtime(PHOTO_DATASET_PATH)
+
 
 # ====================================
 #                CODE
@@ -113,7 +121,13 @@ def search_images(event):
 
 # Load the model and embedding space
 net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
-embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
+# embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
+
+if os.path.exists(EMBEDDING_SPACE_FILE) and last_modified_ds_folder == current_modified_ds_folder:
+    embedding_space = torch.load(EMBEDDING_SPACE_FILE)
+else:
+    embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
+    torch.save(embedding_space, EMBEDDING_SPACE_FILE)
 
 # Create the main window
 root = tk.Tk()
