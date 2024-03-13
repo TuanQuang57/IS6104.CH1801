@@ -58,13 +58,13 @@ images_loader = DataLoader(images_ds, shuffle=False, num_workers=workers, pin_me
 
 
 EMBEDDING_SPACE_FILE = "embedding_space.pth"
-PREVIOUS_DATASET_PATH_FILE = "previous_dataset_path.txt"
+PREVIOUS_DATASET_SIZE_FILE = "previous_dataset_size.txt"
 
-# Load the previous dataset path if it exists
-previous_dataset_path = ""
-if os.path.exists(PREVIOUS_DATASET_PATH_FILE):
-    with open(PREVIOUS_DATASET_PATH_FILE, "r") as file:
-        previous_dataset_path = file.read().strip()
+# Load the previous dataset size if it exists
+previous_dataset_size = 0
+if os.path.exists(PREVIOUS_DATASET_SIZE_FILE):
+    with open(PREVIOUS_DATASET_SIZE_FILE, "r") as file:
+        previous_dataset_size = int(file.read().strip())
 
 
 def update_embedding_space():
@@ -72,19 +72,13 @@ def update_embedding_space():
     embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
     torch.save(embedding_space, EMBEDDING_SPACE_FILE)
 
-def monitor_dataset_changes():
-            
-    last_modified_ds_folder = os.path.getmtime(PHOTO_DATASET_PATH)
-    while True:
-        current_modified_ds_folder = os.path.getmtime(PHOTO_DATASET_PATH)
-        if current_modified_ds_folder != last_modified_ds_folder:
-            update_embedding_space()
-            last_modified_ds_folder = current_modified_ds_folder
-        time.sleep(60)  # Check for changes every minute
-
-# Start monitoring dataset changes in a separate thread
-import threading
-threading.Thread(target=monitor_dataset_changes, daemon=True).start()
+# Check for changes in the dataset folder based on size
+current_size_ds_folder = sum(os.path.getsize(os.path.join(dirpath, filename)) for dirpath, _, filenames in os.walk(PHOTO_DATASET_PATH) for filename in filenames)
+if current_size_ds_folder != previous_dataset_size:
+    update_embedding_space()
+    # Update the previous dataset size file
+    with open(PREVIOUS_DATASET_SIZE_FILE, "w") as file:
+        file.write(str(current_size_ds_folder))
 
 
 # ====================================
@@ -148,15 +142,12 @@ def search_images(event):
 # Load the model and embedding space
 net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 
-if os.path.exists(EMBEDDING_SPACE_FILE) and PHOTO_DATASET_PATH == previous_dataset_path:
+# Load or create embedding space
+if os.path.exists(EMBEDDING_SPACE_FILE):
     embedding_space = torch.load(EMBEDDING_SPACE_FILE)
 else:
-    embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
-    torch.save(embedding_space, EMBEDDING_SPACE_FILE)
+    update_embedding_space()
     
-    # Save the current dataset path to a file for future comparison
-    with open(PREVIOUS_DATASET_PATH_FILE, "w") as file:
-        file.write(PHOTO_DATASET_PATH)
 
 # Create the main window
 root = tk.Tk()
