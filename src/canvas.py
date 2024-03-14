@@ -8,16 +8,20 @@ from Networks import SiameseNetwork
 import pyautogui
 import torchvision.transforms as transforms
 import os
-import time
+from mongo_connection import db
+from mongo_image_ds import MongoImageDataset
 
 
 '''
 SCRIPT DESCRIPTION:
 This script displays a GUI where you can draw sketches and obtain the corresponding images.
 '''
+# Define collection names for photos and sketches
+PHOTOS_COLLECTION = db['Photos']
+SKETCHES_COLLECTION = db['Sketches']
 
-dataset_paths = {'full': ["../256x256/photo", "../256x256/sketch"],
-                 'mini': ["../256x256/photo", "../256x256/sketch"]}
+dataset_paths = {'full': ["../256x256/photo/tx_000000000000", "../256x256/sketch/tx_000000000000"],
+                 'mini': ["../256x256/photo/tx_000000000000", "../256x256/sketch/tx_000000000000"]}
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"We're using {DEVICE} in canvas.py")
 
@@ -51,10 +55,35 @@ backbone = models.resnet34()
 net = SiameseNetwork(output=OUTPUT_EMBEDDING, backbone=backbone).to(DEVICE)
 net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 
+transform = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.ToTensor()
+])
+
+# Create dataset
+photo_dataset = MongoImageDataset(PHOTOS_COLLECTION, transform=transform)
+
+
+# # Query the collection
+# cursor = PHOTOS_COLLECTION.find()
+# # Convert cursor to array using list comprehension
+# result_array = [document for document in cursor]
+
+# print(result_array[0])
+
 # Load Dataset
 workers = 0
 images_ds = ImageFolder(PHOTO_DATASET_PATH, transform=transforms.ToTensor())
-images_loader = DataLoader(images_ds, shuffle=False, num_workers=workers, pin_memory=True, batch_size=BATCH_SIZE)
+images_loader = DataLoader(photo_dataset, shuffle=False, num_workers=workers, pin_memory=True, batch_size=BATCH_SIZE)
+
+# print(images_ds)
+# print(photo_dataset)
+
+# for idx_batch, (images, classes) in enumerate(images_loader):
+#     print(classes)
+
+# for i in enumerate(images_loader):
+#     print(i)
 
 
 EMBEDDING_SPACE_FILE = "embedding_space.pth"
@@ -65,6 +94,35 @@ previous_dataset_size = 0
 if os.path.exists(PREVIOUS_DATASET_SIZE_FILE):
     with open(PREVIOUS_DATASET_SIZE_FILE, "r") as file:
         previous_dataset_size = int(file.read().strip())
+
+# for idx_batch, (images, images_class) in enumerate(images_loader):
+#     print('aaaaa',  images_class)
+        
+# for images in images_loader:
+#     print(images)
+    # images = images.to(self.device)
+    # with torch.no_grad():
+    #     out = torch.squeeze(model.forward_once(images)).to(self.device)
+    #     self.embeddings = torch.cat((self.embeddings, out))
+        
+# Function to calculate the size of a MongoDB collection
+def calculate_collection_size(collection):
+    # Calculate the total size of all documents in the collection
+    total_size = sum(len(doc['image']) for doc in collection.find())
+    return total_size
+
+# Function to check for changes in the dataset stored in MongoDB
+def check_for_dataset_changes():
+    # Get the current size of the MongoDB collections
+    current_photo_collection_size = calculate_collection_size(PHOTOS_COLLECTION)
+
+    # Check if there are changes in the dataset
+    if (current_photo_collection_size != previous_dataset_size):
+        update_embedding_space()
+        # Update the previous dataset size
+        with open(PREVIOUS_DATASET_SIZE_FILE, "w") as file:
+            file.write(str(current_photo_collection_size))
+
 
 
 def update_embedding_space():
@@ -143,11 +201,12 @@ def search_images(event):
 net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 
 # Load or create embedding space
+check_for_dataset_changes()
 if os.path.exists(EMBEDDING_SPACE_FILE):
     embedding_space = torch.load(EMBEDDING_SPACE_FILE)
 else:
     update_embedding_space()
-    
+
 
 # Create the main window
 root = tk.Tk()
