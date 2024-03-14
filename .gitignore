@@ -1,3 +1,7 @@
 # Environments
 .irvenv
 irvenv/
+data/
+.venv
+venv/
+256x256/

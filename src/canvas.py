@@ -7,17 +7,19 @@ from EmbeddingSpace import *
 from Networks import SiameseNetwork
 import pyautogui
 import torchvision.transforms as transforms
-import torch
+import os
+import time
+
 
 '''
 SCRIPT DESCRIPTION:
 This script displays a GUI where you can draw sketches and obtain the corresponding images.
 '''
 
-dataset_paths = {'mini': ["../Mini Dataset/photo", "../Mini Dataset/sketch"],
-                 'full': ["../rendered_256x256/256x256/photo", "../rendered_256x256/256x256/sketch"]}
-DEVICE = torch.device("mps")
-print(f"We're using {DEVICE}")
+dataset_paths = {'full': ["../256x256/photo", "../256x256/sketch"],
+                 'mini': ["../256x256/photo", "../256x256/sketch"]}
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(f"We're using {DEVICE} in canvas.py")
 
 # ====================================
 #               CONFIG
@@ -33,7 +35,7 @@ OUTPUT_EMBEDDING = 16
 
 # Choose a Weight Path
 #   After the training your weight are going to be saved here
-WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive.pth"
+WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive-resnet34.pth"
 
 # Pick a K (for the K-Precision)
 #   It is used show k retrieved images
@@ -45,15 +47,39 @@ BATCH_SIZE = 16
 # Pick a Backbone
 #   The backbone represents the neural network within the siamese network, 
 #   after which several linear layers will be applied to produce an embedding of size EMBEDDING_SIZE.
-backbone = models.resnet18()
+backbone = models.resnet34()
 net = SiameseNetwork(output=OUTPUT_EMBEDDING, backbone=backbone).to(DEVICE)
-net.load_state_dict(torch.load(WEIGHT_PATH, map_location="mps"))
+net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 
 # Load Dataset
 workers = 0
 images_ds = ImageFolder(PHOTO_DATASET_PATH, transform=transforms.ToTensor())
 images_loader = DataLoader(images_ds, shuffle=False, num_workers=workers, pin_memory=True, batch_size=BATCH_SIZE)
-print(f"load dataset")
+
+
+EMBEDDING_SPACE_FILE = "embedding_space.pth"
+PREVIOUS_DATASET_SIZE_FILE = "previous_dataset_size.txt"
+
+# Load the previous dataset size if it exists
+previous_dataset_size = 0
+if os.path.exists(PREVIOUS_DATASET_SIZE_FILE):
+    with open(PREVIOUS_DATASET_SIZE_FILE, "r") as file:
+        previous_dataset_size = int(file.read().strip())
+
+
+def update_embedding_space():
+    global embedding_space
+    embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
+    torch.save(embedding_space, EMBEDDING_SPACE_FILE)
+
+# Check for changes in the dataset folder based on size
+current_size_ds_folder = sum(os.path.getsize(os.path.join(dirpath, filename)) for dirpath, _, filenames in os.walk(PHOTO_DATASET_PATH) for filename in filenames)
+if current_size_ds_folder != previous_dataset_size:
+    update_embedding_space()
+    # Update the previous dataset size file
+    with open(PREVIOUS_DATASET_SIZE_FILE, "w") as file:
+        file.write(str(current_size_ds_folder))
+
 
 # ====================================
 #                CODE
@@ -114,9 +140,14 @@ def search_images(event):
 
 
 # Load the model and embedding space
-net.load_state_dict(torch.load(WEIGHT_PATH, map_location="mps"))
-embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
-print(f"load xong model")
+net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
+
+# Load or create embedding space
+if os.path.exists(EMBEDDING_SPACE_FILE):
+    embedding_space = torch.load(EMBEDDING_SPACE_FILE)
+else:
+    update_embedding_space()
+    
 
 # Create the main window
 root = tk.Tk()
@@ -146,5 +177,4 @@ image_frame = tk.Canvas(root)
 image_frame.pack(pady=20)
 
 # Run the main event loop
-print("before loop")
 root.mainloop()
