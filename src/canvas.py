@@ -7,15 +7,16 @@ from EmbeddingSpace import *
 from Networks import SiameseNetwork
 import pyautogui
 import torchvision.transforms as transforms
+import torch
 
 '''
 SCRIPT DESCRIPTION:
 This script displays a GUI where you can draw sketches and obtain the corresponding images.
 '''
 
-dataset_paths = {'full': ["../Mini Dataset/photo", "../Mini Dataset/sketch"],
-                 'mini': ["../rendered_256x256/256x256/photo", "../rendered_256x256/256x256/sketch"]}
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+dataset_paths = {'mini': ["../Mini Dataset/photo", "../Mini Dataset/sketch"],
+                 'full': ["../rendered_256x256/256x256/photo", "../rendered_256x256/256x256/sketch"]}
+DEVICE = torch.device("mps")
 print(f"We're using {DEVICE}")
 
 # ====================================
@@ -23,12 +24,12 @@ print(f"We're using {DEVICE}")
 # ====================================
 
 # Pick a Dataset (you can use the dictionary up here as reference)
-DATASET_NAME = 'mini'
+DATASET_NAME = 'full'
 PHOTO_DATASET_PATH, SKETCHES_DATASET_PATH = dataset_paths[DATASET_NAME]
 
 # Pick an embedding size
 #   Must coincide with the model weights
-OUTPUT_EMBEDDING = 2
+OUTPUT_EMBEDDING = 16
 
 # Choose a Weight Path
 #   After the training your weight are going to be saved here
@@ -46,12 +47,13 @@ BATCH_SIZE = 16
 #   after which several linear layers will be applied to produce an embedding of size EMBEDDING_SIZE.
 backbone = models.resnet18()
 net = SiameseNetwork(output=OUTPUT_EMBEDDING, backbone=backbone).to(DEVICE)
-net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
+net.load_state_dict(torch.load(WEIGHT_PATH, map_location="mps"))
 
 # Load Dataset
 workers = 0
 images_ds = ImageFolder(PHOTO_DATASET_PATH, transform=transforms.ToTensor())
 images_loader = DataLoader(images_ds, shuffle=False, num_workers=workers, pin_memory=True, batch_size=BATCH_SIZE)
+print(f"load dataset")
 
 # ====================================
 #                CODE
@@ -112,8 +114,9 @@ def search_images(event):
 
 
 # Load the model and embedding space
-net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
+net.load_state_dict(torch.load(WEIGHT_PATH, map_location="mps"))
 embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
+print(f"load xong model")
 
 # Create the main window
 root = tk.Tk()
@@ -143,4 +146,5 @@ image_frame = tk.Canvas(root)
 image_frame.pack(pady=20)
 
 # Run the main event loop
+print("before loop")
 root.mainloop()
