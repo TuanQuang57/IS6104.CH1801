@@ -24,5 +24,4 @@ tk==0.1.0
 torch==1.13.1
 torchvision==0.14.1
 typing==3.7.4.3
-typing-extensions==4.7.1
 urllib3==2.0.7
