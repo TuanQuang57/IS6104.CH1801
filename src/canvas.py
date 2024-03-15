@@ -10,6 +10,7 @@ import torchvision.transforms as transforms
 import os
 from mongo_connection import db
 from mongo_image_ds import MongoImageDataset
+import io
 
 
 '''
@@ -20,8 +21,6 @@ This script displays a GUI where you can draw sketches and obtain the correspond
 PHOTOS_COLLECTION = db['Photos']
 SKETCHES_COLLECTION = db['Sketches']
 
-dataset_paths = {'full': ["../256x256/photo/tx_000000000000", "../256x256/sketch/tx_000000000000"],
-                 'mini': ["../256x256/photo/tx_000000000000", "../256x256/sketch/tx_000000000000"]}
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"We're using {DEVICE} in canvas.py")
 
@@ -31,7 +30,6 @@ print(f"We're using {DEVICE} in canvas.py")
 
 # Pick a Dataset (you can use the dictionary up here as reference)
 DATASET_NAME = 'full'
-PHOTO_DATASET_PATH, SKETCHES_DATASET_PATH = dataset_paths[DATASET_NAME]
 
 # Pick an embedding size
 #   Must coincide with the model weights
@@ -63,28 +61,10 @@ transform = transforms.Compose([
 # Create dataset
 photo_dataset = MongoImageDataset(PHOTOS_COLLECTION, transform=transform)
 
-
-# # Query the collection
-# cursor = PHOTOS_COLLECTION.find()
-# # Convert cursor to array using list comprehension
-# result_array = [document for document in cursor]
-
-# print(result_array[0])
-
 # Load Dataset
 workers = 0
-images_ds = ImageFolder(PHOTO_DATASET_PATH, transform=transforms.ToTensor())
+
 images_loader = DataLoader(photo_dataset, shuffle=False, num_workers=workers, pin_memory=True, batch_size=BATCH_SIZE)
-
-# print(images_ds)
-# print(photo_dataset)
-
-# for idx_batch, (images, classes) in enumerate(images_loader):
-#     print(classes)
-
-# for i in enumerate(images_loader):
-#     print(i)
-
 
 EMBEDDING_SPACE_FILE = "embedding_space.pth"
 PREVIOUS_DATASET_SIZE_FILE = "previous_dataset_size.txt"
@@ -94,16 +74,6 @@ previous_dataset_size = 0
 if os.path.exists(PREVIOUS_DATASET_SIZE_FILE):
     with open(PREVIOUS_DATASET_SIZE_FILE, "r") as file:
         previous_dataset_size = int(file.read().strip())
-
-# for idx_batch, (images, images_class) in enumerate(images_loader):
-#     print('aaaaa',  images_class)
-        
-# for images in images_loader:
-#     print(images)
-    # images = images.to(self.device)
-    # with torch.no_grad():
-    #     out = torch.squeeze(model.forward_once(images)).to(self.device)
-    #     self.embeddings = torch.cat((self.embeddings, out))
         
 # Function to calculate the size of a MongoDB collection
 def calculate_collection_size(collection):
@@ -182,10 +152,13 @@ def search_images(event):
 
     # Display the top K images and their corresponding distances
     for i, (idx, d) in enumerate(zip(topk_indices, topk_distances)):
-        # Resize the image and convert to PhotoImage format
-        t = transforms.ToPILImage()
-        image = t(images_ds[idx][0])
-        resized_image = image.resize((256, 256))
+
+        # Retrieve the image from the MongoDB collection based on its index
+        idx_int = int(idx.item())  # Convert idx to an integer
+        img_bytes = PHOTOS_COLLECTION.find_one(skip=idx_int)["image"]
+        img = Image.open(io.BytesIO(img_bytes))
+
+        resized_image = img.resize((256, 256))
         resized_image_tk = ImageTk.PhotoImage(resized_image)
 
         label = tk.Label(image_frame, image=resized_image_tk)
