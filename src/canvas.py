@@ -100,14 +100,6 @@ def update_embedding_space():
     embedding_space = EmbeddingSpace(net, images_loader, DEVICE)
     torch.save(embedding_space, EMBEDDING_SPACE_FILE)
 
-# Check for changes in the dataset folder based on size
-current_size_ds_folder = sum(os.path.getsize(os.path.join(dirpath, filename)) for dirpath, _, filenames in os.walk(PHOTO_DATASET_PATH) for filename in filenames)
-if current_size_ds_folder != previous_dataset_size:
-    update_embedding_space()
-    # Update the previous dataset size file
-    with open(PREVIOUS_DATASET_SIZE_FILE, "w") as file:
-        file.write(str(current_size_ds_folder))
-
 
 # ====================================
 #                CODE
