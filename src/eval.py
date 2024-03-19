@@ -50,6 +50,10 @@ dict={0: {'backbone' : models.resnet18(), 'embedding_size' : 16, 'weight_path' :
       2: {'backbone' : models.resnet50(), 'embedding_size' : 16, 'weight_path' : '../weights/full-16-contrastive-resnet50.pth'},
       3: {'backbone' : models.resnet34(), 'embedding_size' : 16, 'weight_path' : '../weights/full-16-triplet-resnet34.pth'}}
 
+dict_32={
+    0: {'backbone' : models.resnet34(), 'embedding_size' : 32, 'weight_path' : '../weights/full-32-contrastive.pth'},
+    1: {'backbone' : models.resnet34(), 'embedding_size' : 32, 'weight_path' : '../weights/full-32-triplet.pth'}}
+
 # EMBEDDING_SPACE_FILE = "eval_embedding_space.pth"
 
 
@@ -120,8 +124,6 @@ for k in dict.keys():
     net = SiameseNetwork(output = dict[k]['embedding_size'], backbone = dict[k]['backbone']).to(DEVICE)
     net.load_state_dict(torch.load(dict[k]['weight_path'], map_location=torch.device('cpu')))
     net = net.eval()
-
-    print("here")
     
     with torch.no_grad():
         embedding_space1 = EmbeddingSpace(net, photo_val_loader, DEVICE)
@@ -129,7 +131,7 @@ for k in dict.keys():
         print(f'Model {k} has K@{K} = {results[k]:.2f}')
 
 
-plt.bar(["Resnet18", "Resnet34", "Resnet50", "resnet101"], results)
+plt.bar(["Resnet18 w Contrastive Loss", "Resnet34 w Contrastive Loss", "Resnet50 w Contrastive Loss", "resnet34 w Triplet Loss"], results)
 plt.show()
 
 
