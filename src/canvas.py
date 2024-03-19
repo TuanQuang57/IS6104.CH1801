@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from PIL import Image, ImageTk
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
@@ -11,6 +12,11 @@ import os
 from mongo_connection import db
 from mongo_image_ds import MongoImageDataset
 import io
+
+import ctypes
+
+myappid = 'IS6103.CH1801.SketchZoo'
+ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 
 '''
@@ -37,7 +43,7 @@ OUTPUT_EMBEDDING = 16
 
 # Choose a Weight Path
 #   After the training your weight are going to be saved here
-WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive-resnet34.pth"
+WEIGHT_PATH = f"../weights/{DATASET_NAME}-{OUTPUT_EMBEDDING}-contrastive-resnet50.pth"
 
 # Pick a K (for the K-Precision)
 #   It is used show k retrieved images
@@ -49,7 +55,7 @@ BATCH_SIZE = 16
 # Pick a Backbone
 #   The backbone represents the neural network within the siamese network, 
 #   after which several linear layers will be applied to produce an embedding of size EMBEDDING_SIZE.
-backbone = models.resnet34()
+backbone = models.resnet50()
 net = SiameseNetwork(output=OUTPUT_EMBEDDING, backbone=backbone).to(DEVICE)
 net.load_state_dict(torch.load(WEIGHT_PATH, map_location=torch.device('cpu')))
 
@@ -158,7 +164,7 @@ def search_images(event):
         label.grid(row=i // COLUMNS, column=i % COLUMNS, padx=10, pady=10)
 
         # Create label for the distance and add to the frame
-        text_label = tk.Label(image_frame, text=str(f'{i + 1}° - {d.item():.4}'))
+        text_label = tk.Label(image_frame, text=str(f'Top: {i + 1} - Distance: {d.item():.4}'), font=('Arial', 10, 'bold'))
         text_label.grid(row=i // COLUMNS, column=i % COLUMNS, padx=10, pady=10, sticky='n')
 
 
@@ -175,30 +181,73 @@ else:
 
 # Create the main window
 root = tk.Tk()
-root.title("Image Search")
+root.title("SketchZoo Animal Image Retrieval - IS6104.CH1801")
+root.iconbitmap('../icon/Logo_DH_UIT.ico')
 root.state('zoomed')
+
+def set_pen_cursor(event):
+    if erasing:
+        canvas.config(cursor="dotbox")  # Set cursor to none when in erase mode
+    else:
+        canvas.config(cursor="pencil")  # Set cursor to a pencil shape when in draw mode
+
+def set_default_cursor(event):
+    canvas.config(cursor="")  # Set cursor back to the default when leaving the canvas
+
+def toggle_erasing():
+    global erasing
+    erasing = not erasing  # Toggle the value of the erasing flag
+
+def handle_draw(event):
+    if erasing:
+        # Get the current mouse position
+        x, y = event.x, event.y
+        # Find all items that intersect with the mouse position
+        overlapping_items = canvas.find_overlapping(x - 2, y - 2, x + 2, y + 2)
+        # Remove all overlapping items
+        for item in overlapping_items:
+            canvas.delete(item)
+    else:
+        # Draw on the canvas
+        canvas.create_oval(event.x - 2, event.y - 2, event.x + 2, event.y + 2, fill="black")
+
 
 # Create the canvas for drawing
 canvas = tk.Canvas(root, width=CANVAS_SIZE, height=CANVAS_SIZE, bg="white", highlightbackground="black",
                    highlightthickness=2)
 canvas.pack(padx=20, pady=20)
 
+
 # Bind mouse events to canvas
-canvas.bind("<B1-Motion>",
-            lambda event: canvas.create_oval(event.x - 2, event.y - 2, event.x + 2, event.y + 2, fill="black"))
+# Bind events to change cursor
+canvas.bind("<Enter>", set_pen_cursor)  # When cursor enters canvas
+canvas.bind("<Leave>", set_default_cursor)  # When cursor leaves canvas
+canvas.bind("<B1-Motion>", handle_draw)
 canvas.bind("<ButtonRelease-1>", search_images)
 
-# Create a frame for the buttons
+# Create a frame to hold the button
 button_frame = tk.Frame(root)
 button_frame.pack(pady=10)
 
-# Create the buttons
-clear_button = tk.Button(button_frame, text="Clear Canvas", command=clear_canvas)
-clear_button.pack(side=tk.LEFT, padx=10)
+# Create a styled button for toggling erasing mode
+erase_button = ttk.Button(button_frame, text="Toggle Draw/Erase Mode", command=toggle_erasing, style='TButton', cursor="hand2")
+erase_button.pack(side=tk.LEFT, padx=10)
+
+# Create a styled button
+clear_button = ttk.Button(button_frame, text="Clear Canvas", command=clear_canvas, style='TButton', cursor="hand2")
+clear_button.pack(side=tk.RIGHT, padx=10)
+
+# Define a custom style for the button
+style = ttk.Style()
+style.configure('TButton', background='#3498db', foreground='black', font=('Arial', 10, 'bold'), padding=10)
 
 # Create a frame for the image display
 image_frame = tk.Canvas(root)
 image_frame.pack(pady=20)
+
+# Flag to indicate whether erasing mode is active
+erasing = False
+
 
 # Run the main event loop
 root.mainloop()
