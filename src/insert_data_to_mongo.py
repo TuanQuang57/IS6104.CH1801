@@ -32,6 +32,9 @@ def save_images_to_mongodb(folder_path, collection):
                     print(class_label)
                     collection.insert_one({'image': binary_data, 'class': class_label})
 
+    # Add index to the 'image' field after inserting all documents
+    collection.create_index([("image", 1)])
+
 
 
 # Save photos to MongoDB
