@@ -12,6 +12,7 @@ import os
 from mongo_connection import db
 from mongo_image_ds import MongoImageDataset
 import io
+import time
 
 import ctypes
 
@@ -26,6 +27,8 @@ This script displays a GUI where you can draw sketches and obtain the correspond
 # Define collection names for photos and sketches
 PHOTOS_COLLECTION = db['Photos']
 SKETCHES_COLLECTION = db['Sketches']
+
+print(PHOTOS_COLLECTION.index_information())
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"We're using {DEVICE} in canvas.py")
@@ -139,21 +142,36 @@ def get_canvas_image():
 
 
 def search_images(event):
+    start_time = time.time()  # Record start time
     # Get the sketch image from the canvas
     sketch = get_canvas_image()
 
     # Get the top K images that are most similar to the sketch
     topk_distances, topk_indices = embedding_space.top_k(sketch[None, :].to(DEVICE), K)
 
+
+    # Calculate time taken for the query
+    query_time = time.time() - start_time
+    print(f"Time taken for query: {query_time} seconds")
+
     # Clear the previous images
     image_frame.delete("all")
 
+    start_time = time.time()  # Record start time
     # Display the top K images and their corresponding distances
     for i, (idx, d) in enumerate(zip(topk_indices, topk_distances)):
+
+        # Record start time for fetching image bytes
+        fetch_start_time = time.time()
 
         # Retrieve the image from the MongoDB collection based on its index
         idx_int = int(idx.item())  # Convert idx to an integer
         img_bytes = PHOTOS_COLLECTION.find_one(skip=idx_int)["image"]
+
+        # Calculate time taken for fetching image bytes
+        fetch_time = time.time() - fetch_start_time
+        print(f"Time taken for fetching image bytes: {fetch_time} seconds")
+
         img = Image.open(io.BytesIO(img_bytes))
 
         resized_image = img.resize((256, 256))
@@ -166,6 +184,13 @@ def search_images(event):
         # Create label for the distance and add to the frame
         text_label = tk.Label(image_frame, text=str(f'Top: {i + 1} - Distance: {d.item():.4}'), font=('Arial', 10, 'bold'))
         text_label.grid(row=i // COLUMNS, column=i % COLUMNS, padx=10, pady=10, sticky='n')
+
+        # Calculate time taken for displaying images
+    display_time = time.time() - start_time
+    print(f"Time taken for displaying images: {display_time} seconds")
+
+    total_time = query_time + display_time
+    print(f"Total time taken: {total_time} seconds")
 
 
 # Load the model and embedding space
