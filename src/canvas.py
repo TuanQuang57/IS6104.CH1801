@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 from torch.utils.data import DataLoader
-from torchvision.datasets import ImageFolder
 from torchvision import models
 from EmbeddingSpace import *
 from Networks import SiameseNetwork
